@@ -50,6 +50,7 @@ def home():
 
     return render_template("home.html")  #calls html code to screen
 
+#Room page: Join chatroom
 @app.route("/room")
 def room():
     room = session.get("room")
@@ -58,7 +59,37 @@ def room():
     
     return render_template("room.html")
 
-#Room page: Join chatroom
+#Socket Connection
+@socketio.on("connect")
+def connect(auth):
+    #query the session for the name and code 
+    room = session.get("room")
+    name = session.get("name")
+    if not room or not name:
+        return
+    if room not in rooms:
+        leave_room(room)
+        return
+    join_room(room)
+    send({"name": name, "message": "has entered the room"}, to=room)
+    rooms[room]["members"] += 1
+    print(f"{name} joined room {room}")
+    #socket is initialized in room.html
+
+#Socket Disconnection
+@socketio.on("disconnect")
+def disconnect():
+    room = session.get("room")
+    name = session.get("name")
+    leave_room(room)
+
+    if room in rooms:
+        rooms[room]["members"] -= 1
+        if rooms[room]["members"] <= 0:
+            del rooms[room]
+
+    send({"name": name, "message": "has left the room"}, to=room)
+    print(f"{name} left room {room}")
 
 if __name__ == "__main__":
     socketio.run(app,debug=True)
